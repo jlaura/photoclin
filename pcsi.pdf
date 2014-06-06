@@ -1,0 +1,698 @@
+! PCSI.PDF
+PROCESS HELP=*
+PARM FROM     TYPE=(STRING,128),COUNT=(1)
+PARM SFROM    TYPE=(STRING,128),COUNT=(0:1),DEFAULT=--
+PARM TO       TYPE=(STRING,128),DEFAULT=("")
+PARM ZIN      TYPE=(STRING,128),COUNT=(0:1),DEFAULT=--
+PARM ZOUT     TYPE=(STRING,128),COUNT=(0:1),DEFAULT=(zout)
+PARM LOGFILE  TYPE=(STRING,128),COUNT=(0:1),DEFAULT=--
+PARM NOTE     TYPE=(STRING,72),DEFAULT=(NONE)
+PARM MAXMEM   INTEGER,DEFAULT=(12000000)
+PARM DNATM    REAL,COUNT=(1),DEFAULT=(0.0)
+PARM DNDATUM  REAL,COUNT=(1)
+PARM DATUMTYP INTEGER,VALID=(1,2),DEFAULT=(1)
+PARM X        REAL,COUNT=(0:1),DEFAULT=--
+PARM Y        REAL,COUNT=(0:1),DEFAULT=--
+PARM DISTORTD TYPE=(STRING,3),COUNT=(1),VALID=(YES,NO),DEFAULT=(NO)
+PARM RADIUS   REAL,DEFAULT=(0.0)
+PARM XSPHERE  REAL,COUNT=(0:1),DEFAULT=--
+PARM YSPHERE  REAL,COUNT=(0:1),DEFAULT=--
+PARM RMASK1   REAL,DEFAULT=(.85)
+PARM RMASK2   REAL,DEFAULT=(.95)
+PARM PHOFUNC  TYPE=(STRING,6),VALID=(LAMBER,LOMSEL,  +
+              MIN,LUNLAM,HAPHEN,HAPLEG,HAPH_S,HAPL_S),DEFAULT=(LAMBER)
+PARM K        REAL,COUNT=(0:1),DEFAULT=--
+PARM L        REAL,COUNT=(0:1),DEFAULT=--
+PARM WH       REAL,COUNT=(0:1),DEFAULT=--
+PARM B0       REAL,COUNT=(0:1),DEFAULT=--
+PARM HH       REAL,COUNT=(0:1),DEFAULT=--
+PARM THETA    REAL,COUNT=(0:1),DEFAULT=--
+PARM HG1      REAL,COUNT=(0:1),DEFAULT=--
+PARM HG2      REAL,COUNT=(0:1),DEFAULT=--
+PARM BH       REAL,COUNT=(0:1),DEFAULT=--
+PARM CH       REAL,COUNT=(0:1),DEFAULT=--
+PARM METHOD   TYPE=(STRING,3),COUNT=(1),VALID=(SOR,CGM,DIR), +
+	      DEFAULT=(SOR)
+PARM ALPHA    REAL,DEFAULT=(10000.0)
+PARM ALPHAASYM REAL,DEFAULT=(10000.0)
+PARM STEPASYM REAL,DEFAULT=(1000000.0)
+PARM WMAX     REAL,DEFAULT=(1.5),VALID=(0:2)
+PARM DIVTOL   REAL,DEFAULT=(300.0)
+PARM ITMAX    INTEGER,DEFAULT=(10),VALID=(1:30)
+PARM ETOL     REAL,DEFAULT=(0.00001)
+PARM TAUFAC   REAL,DEFAULT=(0.0)
+PARM CPULIMIT REAL,DEFAULT=(0.0)
+PARM MAXNR    INTEGER,DEFAULT=(30)
+PARM NSMOOTH  INTEGER,DEFAULT=(-1)
+END-PROC
+.TITLE
+PCSI - Two dimensional photoclinometry "smart interpolation".
+.HELP
+NON-interactive program for performing two-dimensional photo-
+clinometry (shape from shading, or topographic modeling based 
+on image brightness) using the finite-element method of Kirk 
+(1987), which is described further by Kirk et al. (2003).  
+A fixed set of iterations will be performed, sufficient to 
+add local details to a low-resolution elevation model by 
+"smart interpolation".
+
+Kirk, R. L. (1987) "III. A Fast Finite-Element Algorithm for 
+   Two-dimensional Photoclinometry,"  Ph.D. Thesis unpubl.), 
+   Caltech, pp. 165-258. 
+
+Kirk, R. L., Barrett, J. M., and Soderblom, L. A., Photoclinometry
+   made simple...?, "Advances in Planetary Mapping 2003", 
+   Houston, March 2003, on the web at http://wwwflag.wr.usgs.gov/
+   USGSFlag/Space/Isprs/MEETINGS/Houston2003/abstracts/
+   Kirk_isprs_mar03.pdf
+
+A description of the program given "while standing on one leg"
+is as follows:  An image is input.  The program iteratively 
+estimates the shape of the topographic surface that would come 
+closest (in a least squares sense) to producing such an image 
+under the viewing geometry described in the image label.  The 
+estimated topographic model is then output as an ISIS cube.
+
+The process by which the solution is obtained is iterative,
+and in general doubly iterative.  The nonlinear equations for
+the surface that best fits the image are repeatedly linearized 
+and solved for increments to the topography that improve the 
+fit, a process known as "Newton-Raphson iteration".  Several means
+are available to solve the matrix equation generated at each
+Newton step:
+  (a) Direct solution by matrix factorization.  This is not
+      iterative but its memory and CPU requirements grow very
+      rapidly with image size so it is only practical for 
+      small images.  Run program pcinfo to determine memory
+      needs of each method for a given image.
+  (b) Incomplete Cholesky/Conjugate Gradient method (ICCG).
+      This is an iterative method that is memory efficient so
+      it can be used with large images.  It converges rapidly
+      when it works but unfortunately tends to diverge cata-
+      strophically for photoclinometry on all but the blandest 
+      images. 
+  (c) Successive over-relaxation (SOR).  This is another memory-
+      efficient, iterative method.  SOR is the method of choice
+      for most images.  Its main weakness is that long spatial
+      wavelength components of the solution converge very slowly.
+      Convergence can be greatly speeded up by "multigridding"
+      (working on approximations of the same problem at different
+      resolutions in order to arrive at the different spatial
+      frequency components of the solution simultaneously).
+      The multigrid algorithm for photoclinometry unfortunately
+      requires human supervision to be effective.
+
+The interactive photoclinometry program pc2d should be used in 
+the general case where SOR with multigridding is needed.  
+The present program is intended for use when the input image is 
+small enough that direct factorization can be used, or when a 
+starting solution with accurate long-wavelength topography is 
+available, e.g., from stereo or altimetry.  In the latter case, 
+photoclinometry provides a kind of "smart interpolation" to 
+rapidly  add details at the single-pixel level to the accurate 
+but low-resolution elevation model.
+
+The program parameters divide broadly into three groups:
+  (1) Input/output file names (may include an initial guess
+      at the topography, and a log file documenting the iterative
+      solution process).
+  (2) Description of surface & atmospheric scattering properties.
+  (3) Parameters affecting the iteration process.
+
+Programmer:  Randolph Kirk, U.S.G.S., Flagstaff
+.LEVEL1
+Input and output parameters
+
+.VAR FROM
+Input cube file name
+.VAR SFROM
+Input subcube specifier
+.VAR TO
+Output cube file name
+.VAR ZIN
+Initial guess topo file
+name (optional). Set
+ZIN="DATUM" to start with
+datum instead of topo file.
+.VAR ZOUT
+Continuously updated topo
+estimate file name 
+.VAR LOGFILE
+Iteration history log file 
+name (optional)
+.VAR NOTE
+Note for log file 
+.VAR MAXMEM
+Amount of memory in longwords
+(4-byte memory locations) to
+allocate.
+
+Photometric parameters
+
+.VAR DNATM
+Contribution to image DN
+by atmospheric scattering
+.VAR DNDATUM
+DN value corresponding to
+datum (mean plane) orientation
+after subtracting DNATM
+.VAR DATUMTYP
+Type of datum model
+(Zero-topography surface)
+1=Plane 2=Sphere
+.VAR X
+Sample at which to calculate
+geometry (rel to whole frame)
+.VAR Y
+Line at which to calculate
+geometry (rel to whole frame)
+.VAR DISTORTD
+For Viking/Voyager, does image
+still contain distortions?
+.VAR RADIUS
+Radius of datum sphere in km
+(If =< 0, label value used)
+.VAR XSPHERE
+Center sample for sphere datum
+.VAR YSPHERE
+Center line for sphere datum
+.VAR RMASK1
+Fractional radius at which to
+start masking for datum sphere
+.VAR RMASK2
+Fractional radius beyond which
+to mask for datum sphere
+.VAR PHOFUNC
+Photometric function model
+(LAMBER,LOMSEL,MIN,LUNLAM,
+HAPHEN,HAPLEG,HAPH_S,HAPL_S)
+.VAR K
+Minnaert exponent for MIN
+.VAR L
+Lunar-Lambert weight for LUNLAM
+.VAR WH
+Single-scattering albedo for
+HAPHEN, HAPLEG, HAPH_S, HAPL_S
+.VAR HH
+Opposition surge width for
+HAPHEN, HAPLEG, HAPH_S, HAPL_S
+.VAR B0
+Opposition surge strength for
+HAPHEN, HAPLEG, HAPH_S, HAPL_S
+.VAR THETA
+Macroscopic surface roughness
+in degrees, for HAPHEN, HAPLEG
+.VAR HG1
+Henyey-Greenstein asymmetry
+parameter for single particle
+phase function in HAPHEN, HAPH_S
+.VAR HG2
+2nd Henyey-Greenstein parameter
+controls mix of +HG1, -HG1
+components for HAPHEN, HAPH_S
+.VAR BH
+Coefficient of P1(cos(phase)) 
+in Legendre single particle 
+phase function for HAPLEG, HAPL_S
+.VAR CH
+Coefficient of P2(cos(phase)) 
+in Legendre single particle 
+phase function for HAPLEG, HAPL_S
+
+Parameters controlling iteration
+
+.VAR METHOD
+Type of solution method to
+use (SOR,CGM,DIR)
+.VAR ALPHA
+Penalty number
+.VAR ALPHAASYM
+Asymptotic penalty number
+.VAR STEPASYM
+Time constant (steps) to
+approach ALPHAASYM
+.VAR WMAX
+Asymptotic SOR weight
+.VAR DIVTOL
+Max topo change / RMS change 
+bigger than this signals local
+divergence of iteration step
+.VAR ITMAX
+Max # SOR steps/lineariztion
+.VAR ETOL
+RMS residual value indicating
+solution has converged
+.VAR TAUFAC
+Fraction of truncation error
+to achieve for convergence
+.VAR CPULIMIT
+Max CPU minutes to expend on
+iteration (0 = no limit)
+.VAR MAXNR
+Max # OF Newton-Raphson steps
+.VAR NSMOOTH
+# of 3x3 boxcars to do before
+iteration (-ve -> as many as
+reduce errors)
+.LEVEL2
+.VAR FROM
+The image file upon which photoclinometry is to be
+performed. 
+.VAR SFROM
+Input subcube specifier.  Selects the part of the input cube 
+file upon which photoclinometry is to be performed.  The format 
+for the SFROM parameter is ss-es(sinc):sl-el(linc):sb-eb(binc)
+where:
+
+ss = starting sample   es = ending sample  sinc = sample increment
+sl = starting line     el = ending line    linc = line increment
+sb = starting band     eb = ending band    binc = band increment
+
+The default value of NULL will select the entire input cube.  If
+the line and sample increments are not equal, the map scale will 
+not be accurate.
+.VAR TO
+The cube file to be created, containing a digital
+elevation model (DEM) of the region contained in the 
+input (sub)image.  TO is created only when the program
+finishes successfully.
+
+The difference between TO and ZOUT is that values in
+TO have been interpolated to pixel centers, so that TO
+has the same line and sample dimensions as the area of
+FROM specified by SFROM.  ZOUT contains elevations at
+the corners of the image pixels and therefore has one
+more line and sample than TO.
+
+Both TO and ZOUT are 32-bit floating point files 
+containing heights in meters.  The photoclinometry
+algorithm actually calculates "heights" measured
+along line-of-sight toward the camera.  Rather than
+performing a full three-dimensional resampling of
+the topography to convert to heights measured
+vertically (i.e., orthorectification), the program
+scales the slantwise heights by the cosine of the
+emission angle.  The difference between a DEM scaled
+in this way and one that is orthorectified will be
+negligible if either the emission angle or the 
+maximum topographic slope is small.
+.VAR ZIN
+Optional cube file to be read, containing an initial 
+estimate of the topography (relative to the datum surface,
+in units of meters) to be used to start iteration.
+
+There are two valid options for the size of ZIN; any
+Other size will cause the program to abort.
+  (1) ZIN is the same size as the subarea of the image
+      FROM specified by SFROM, and contains heights at
+      the centers of pixels.  This would be the case if
+      topographic data from another source (stereo or
+      altimetry) are projected to the geometry of FROM.
+      The output file TO from a previous photoclinometry
+      calculation is also this size and can be used, but
+      the ZOUT file is preferred.  ZIN files this size
+      will be resampled to give pixel-corner heights 
+      before they are used.
+  (2) ZIN is one sample and one line larger than the
+      specified subarea of FROM, and contains heights
+      at the corners of pixels.  A ZOUT file from a
+      previous photoclinometry calculation can be used
+      as ZIN, allowing iteration to continue with no
+      degradation caused by resampling
+
+If no file is specified, an initial estimate will be computed
+using the fast "SSIPSF-PI" algorithm, which exploits the
+symmetries of the photoclinometry equations linearized about
+the datum plane.  If the string "DATUM" is used for ZIN, no
+cube file will be read, and the elevation model will be
+initialized to the datum model (planar or spherical) with no
+added topography.
+.VAR ZOUT
+Output image file continuously updated to contain the most
+recent estimate of the digital elevation model (DEM) during
+iteration. In the event that the program encounters an
+error or fails to achieve convergence, ZOUT can be used as 
+the ZIN file in a subsequent run of the program, allowing 
+iteration to be resumed with no loss of DEM quality. 
+
+The difference between TO and ZOUT is that values in
+TO have been interpolated to pixel centers, so that TO
+has the same line and sample dimensions as the area of
+FROM specified by SFROM.  ZOUT contains elevations at
+the corners of the image pixels and therefore has one
+more line and sample than TO.
+
+Both TO and ZOUT are 32-bit floating point files 
+containing heights in meters.  The photoclinometry
+algorithm actually calculates "heights" measured
+along line-of-sight toward the camera.  Rather than
+performing a full three-dimensional resampling of
+the topography to convert to heights measured
+vertically (i.e., orthorectification), the program
+scales the slantwise heights by the cosine of the
+emission angle.  The difference between a DEM scaled
+in this way and one that is orthorectified will be
+negligible if either the emission angle or the 
+maximum topographic slope is small.
+.VAR LOGFILE
+Optional output text file containing a header with parameter
+information and a table of various statistics as they change
+during the iteration process.  The statistics tabulated 
+include:  iteration #, resolution at which iteration is
+being done (in units of full image resolution), # of floating
+operations expended so far, RMS residual in photoclinometry
+equations, RMS difference between observed image and that
+calculated from the topo solution, and RMS topography in
+pixel widths.
+.VAR NOTE
+Note to be included in the header of the log file.  Will also
+be written to the header of the output image file. Maximum 72
+characters.
+.VAR MAXMEM
+This is the amount of memory in longwords to allocate.  Memory
+required depends on the image size, illumination geometry (which
+determines how the image will be rotated for some processing steps)
+and solution methods used.  Run program pcinfo to determine memory
+needs for a given image.
+.VAR DNATM
+Estimated atmospheric scattering contribution to input image.
+This value will be subtracted from all pixels before the image
+is scaled and used for photoclinometry.  DNATM+DNDATUM should be
+close to the mean DN of the image or of a level subarea.  If they
+are not, the resulting DEM will be tilted.
+.VAR DNDATUM
+Estimated brightness of a patch with the orientation of the mean
+planetary surface (datum) in the input image.  This is the value
+after DNATM is subtracted from the image.  The amplitude of
+estimated topography is inversely proportional to the DNDATUM
+assumed, so if the resulting DEM can be compared to a priori
+height information even of low resolution, DNDATUM and DNATM
+can be refined.
+.VAR DATUMTYP
+Type of model for the datum, or mean planetary surface.  If
+DATUMTYP=1, the datum is a plane tangent at the image point
+at which geometric quantities are calculated (see X, Y).  If
+DATUMTYP=2, the datum is a portion of a sphere.  In this case
+the size and location of the sphere may be calculated from label
+information or overridden by user input (see RADIUS, XSPHERE,
+YSPHERE).  Default is 1.
+.VAR X
+Affects the location in the image at which geometric quantities
+will be calculated from SPICE label information.  These quantities
+will be calculated at sample X, line Y measured relative to the 
+FULL camera frame from which the current data were extracted.
+If no value is given for X the sample coordinate of the center of 
+the full frame will be used.
+.VAR Y
+Affects the location in the image at which geometric quantities
+will be calculated from SPICE label information.  These quantities
+will be calculated at sample X, line Y measured relative to the 
+FULL camera frame from which the current data were extracted.
+If no value is given for Y the line coordinate of the center of 
+the full frame will be used.
+.VAR DISTORTD
+Do the images still contain camera distortions?  If YES, the X,Y
+values from either the user inputs or the defaults for the center
+of the frame will be corrected before being used to find the
+illumination and viewing geometry.  Default is NO (no correction).
+.VAR RADIUS
+Radius in km of the spherical datum model to be used if DATUMTYP=2
+(q.v.).  If RADIUS=<0, the planetary radius read from PLANET.SAV
+will be used, but if RADIUS>0 the value input will be used.
+.VAR XSPHERE
+Affects the center that will be used for a spherical datum model.
+If no value is given, the center of the disk will be calculated
+from the label information.
+.VAR YSPHERE
+Affects the center that will be used for a spherical datum model.
+If no value is given, the center of the disk will be calculated
+.VAR RMASK1
+This parameter is applicable only if DATUMTYP=2.
+Pixels further than RMASK2 times the radius of the spherical datum
+from the center of the sphere will be set to the (local) datum
+brightness, those closer than RMASK1 will be left alone, and 
+those in between will have their brightness interpolated between
+the actual and datum values.
+.VAR RMASK2
+This parameter is applicable only if DATUMTYP=2.
+Pixels further than RMASK2 times the radius of the spherical datum
+from the center of the sphere will be set to the (local) datum
+brightness, those closer than RMASK1 will be left alone, and 
+those in between will have their brightness interpolated between
+the actual and datum values.
+.VAR PHOFUNC
+This parameter selects the type of photometric function
+model used to describe the planetary surface. The parameters
+used differ between the photometric functions.
+
+PHOTOMETRIC FUNCTIONS
+
+TAE     Full name                       Parameters
+___     _________                       __________
+
+LAMBER  Lambert                         none
+LOMSEL  Lommel-Seeliger ("lunar")       none
+LUNLAM  Lunar-Lambert function          L
+MIN     Minnaert function               K
+HAPHEN  Hapke - Henyey-Greenstein       WH,HG1,HG2,
+                                        HH,B0,THETA
+HAPLEG  Hapke - Legendre                WH,BH,CH,
+                                        HH,BH,THETA
+HAPH_S  Hapke - Henyey-Gr. smooth       WH,HG1,HG2
+HAPL_S  Hapke - Legendre smooth         WH,BH,CH
+
+The functions are defined as follows, where phase is
+the phase angle, and u0 and u are the cosines of the
+incidence and emission angles, respectively
+
+Lambert
+FUNC=u0
+
+Lommel-Seeliger
+FUNC=u0/(u0+u)
+
+Minnaert
+FUNC=u0**K * u**(K-1)
+
+Lunar-Lambert ("lunar" part is Lommel-Seeliger)
+FUNC=(1-L)*u0 + 2*L*u0/(u0+u)
+
+
+Hapke - Henyey-Greenstein
+Complete Hapke (1981; 1984; 1986) photometric model
+with Henyey-Greenstein single-particle phase function
+whose coefficients are HG1 and HG2, plus single scattering
+albedo WH, opposition surge parameters HH and B0, and
+macroscopic roughness THETA.
+
+Hapke - Legendre
+Similar to the previous except that the single particle
+phase function is a two-term Legendre polynomial with
+coefficients BH and CH.
+
+Hapke - Henyey-Greeenstein smooth
+Substantially simplified version of Hapke-Henyey-Greenstein
+function that omits the opposition effect as well as the
+(very slow) macroscopic roughness correction.  For a smooth
+model with opposition effect, use the full Hapke-Henyey
+function with THETA=0.
+
+Hapke - Legendre smooth
+Simplified Hapke model with Legendre single particle phase
+function, no opposition surge, and no roughness correction.
+
+Hapke, B. W., 1981. Bidirectional reflectance spectroscopy 
+   1: Theory. J. Geophys. Res., pp. 86,3039-3054.
+
+Hapke, B., 1984. Bidirectional reflectance spectroscopy 
+   3: Corrections for macroscopic roughness. Icarus, 59, pp. 41-59.
+
+Hapke, B., 1986. Bidirectional reflectance spectroscopy 
+   4: The extinction coefficient and the opposition effect. 
+   Icarus, 67, pp. 264-280.
+
+McEwen (1991) has compiled Hapke parameter estimates for
+many planets and satellites from a variety of sources.
+
+McEwen, A. S., 1991. Photometric functions for photo-
+   clinometry and other applications.  Icarus, 92, pp. 298-311.
+
+.VAR K
+Exponent that governs limb-darkening in the Minnaert
+photometric function: PHOFUNC=u0**K * u**(K-1). Values
+generally fall in the range from 0.5 ("lunar-like", 
+almost no limb darkening) to 1.0 (Lambert function).
+.VAR L
+Weight that governs limb-darkening in the Lunar-Lambert
+photometric function: PHOFUNC=(1-L)*u0 + 2*L*u0/(u0+u).
+Values generally fall in the range from 0 (Lambert
+function) to 1 (Lommel-Seeliger or "lunar" function).
+.VAR WH
+Single-scattering albedo of surface particles, used if
+PHOFUNC=HAPHEN, HAPLEG, HAPH_S, or HAPL_S.  See Hapke (1981).
+.VAR B0
+Magnitude of the opposition effect for the surface, used
+if PHOFUNC=HAPHEN, HAPLEG, HAPH_S, or HAPL_S.  See Hapke (1984).
+.VAR HH
+Width parameter for the opposition effect for the surface,
+used if FUNC=HAPHEN, HAPLEG, HAPH_S, or HAPL_S.  See Hapke 
+(1984).
+.VAR THETA
+"Macroscopic roughness" of the surface as it affects the
+photometric behavior, used if PHOFUNC=HAPHEN or HAPLEG.  
+This is the RMS slope at scales larger than the distance 
+photons penetrate the surface but smaller than a pixel.  
+See Hapke (1986).  The roughness correction, which will
+be evaluated if THETA is given any value other than 0.0,
+is extremely slow.
+.VAR HG1
+Asymmetry parameter used in the Henyey-Greenstein model
+for the scattering phase function of single particles
+in the surface, used if PHOFUNC=HAPHEN or HAPH_S.  See Hapke
+(1981).  The two-parameter Henyey-Greenstein function is
+P(phase) = (1-HG2) * (1-HG1**2)/(1+HG1**2+2*HG1*COS(PHASE))**1.5
+         +    HG2  * (1-HG1**2)/(1+HG1**2-2*HG1*COS(PHASE))**1.5
+.VAR HG2
+Second parameter of the two-parameter Henyey-Greenstein
+model for the scattering phase function of single particles
+in the surface, used if PHOFUNC=HAPHEN or HAPH_S.  This 
+parameter controls a the proportions in a linear mixture 
+of ordinary Heneyey-Greenstein phase functions with 
+asymmetry parameters equal to +HG1 and -HG1.  See HG1 for
+the full formula.
+.VAR BH
+When PHOFUNC=HAPLEG or HAPL_S, a two-term Legendre polynomial
+is used for the scattering phase function of single 
+particles in the surface
+P(phase) = 1 + BH * P1(COS(PHASE)) + CH * P2(COS(PHASE))
+.VAR CH
+When PHOFUNC=HAPLEG or HAPL_S, a two-term Legendre polynomial
+is used for the scattering phase function of single 
+particles in the surface
+P(phase) = 1 + BH * P1(COS(PHASE)) + CH * P2(COS(PHASE))
+.VAR METHOD
+This is the solution method to be used. Available methods are:
+SOR=Successive Over-Relaxation, CGM=Incomplete Cholesky/Conjugate
+Gradient, DIR=Direct Factorization. The default is to use SOR.
+Memory requirements for the methods differ; run program pcinfo
+to determine the MAXMEM setting required to use each method with
+a given image.
+.VAR ALPHA
+Penalty number for the constrained minimization form of the
+photoclinometry equations:  a small amount 1/ALPHA of a function
+expressing the "roughness" of the topographic surface is added to
+the expression for the RMS difference between the observed and
+modeled (from the topo) image brightnesses, and the combined
+function is minimized.  In this way, the under-determination
+of the brightness fit by itself is avoided.  In theory, ALPHA
+should scale like the signal-to-noise ratio of the data.  In 
+practice, the value of ALPHA has very little effect on the solution 
+obtained, as long as it is large (1000 or greater, say).  Reducing 
+ALPHA might be attempted if the iteration process does not converge 
+successfully with the default value.
+.VAR ALPHAASYM
+Asymptotic penalty number.  The penalty number will be slowly 
+increased from its current value toward ALPHAASYM at each Newton-
+Raphson step.  The number of steps needed to approach the asymptote
+is set by STEPASYM.  Tbus, ALPHAASYM >= ALPHA is required.  Changing
+penalty number is not useful for SOR but may be helpful to achieve
+convergence with the Incomplete Cholesky/Conjugate Gradient (ICCG)
+method of solving the linearized equations.
+.VAR STEPASYM
+Time constant (steps) to approach asymptotic value of the penalty
+number.  See ALPHAASYM.
+.VAR WMAX
+Successive over-relaxation (SOR) is used to approximate the solution
+to the linearized photoclinometry equations.  The relaxation weight
+is gradually increased from 1.0 (technically, Gauss-Seidel iteration
+rather than over-relaxation) in the first iteration, reaching WMAX
+asymptotically.  This is of use because a weight >1.0 can speed
+convergence dramatically in the later stages of SOR (when the residual
+error is a smooth function of location) but is often inappropriate for 
+the first few iterations.  If the topography being reconstructed is
+very rugged, a large SOR weight may be inappropriate even for the
+later steps.  Setting WMAX=1.0 or only slightly larger may help
+convergence in such cases.  For the roughest topography, it may be
+necessary to set WMAX < 1 and perform underrelaxation to smooth
+local divergence.  
+.VAR DIVTOL
+Successive over-relaxation (SOR) is used to approximate the solution
+to the linearized photoclinometry equations.  SOR can be subject to local
+divergence if the image is noisy or the topography is rough.  The
+SOR increments to the topography are therefore examined for divergent
+values:  values more than DIVTOL times the RMS over the whole dataset
+are considered divergent.  If such values occur, the increment is
+rejected, the topography is smoothed, and iteration is restarted.  To
+avoid a possible infinite loop, iteration is abandoned completely if
+three successive smoothings do not cure divergence.
+.VAR ITMAX
+Successive over-relaxation (SOR) is used to approximate the solution
+to the linearized photoclinometry equations.  ITMAX is the maximum
+number of SOR steps that will be taken before the equations are
+relinearized about the new topographic estimate.  The smoother the
+topography, the closer the equations are to linear in the first place,
+and the larger ITMAX may be set to increase the efficiency of computation.
+(Note that DDZTOL needs to be set smaller also.)
+.VAR ETOL
+Target RMS residual for iteration on the linearized photoclinometry
+equations.  If the RMS residual falls below ETOL, iteration is
+assumed to have converged and the program outputs the current
+elevation model as TO and stops.
+.VAR TAUFAC
+Successive over-relaxation (SOR) is used to approximate the solution
+to the linearized photoclinometry equations.  This has the drawback
+that, although the high spatial frequency (horizontally small)
+components of the solution are arrived at quickly, the low spatial
+frequency (horizontally large) components are not.  A technique known
+as "multigridding" is used to speed up full convergence.  Lower-frequency
+components of the full solution are arrived at by attempting to solve
+the equivalent problem with half the resolution (twice the pixel size
+or "mesh spacing").  The full speedup of the method is realized when
+a 1/4 resolution mesh is used to speed convergence at 1/2 resolution,
+a 1/8 res mesh to speed convergence at 1/4 res, and so on.
+
+TAUFAC controls the switching between meshes and also detection that
+the solution has converged.  When the working resolution is changed
+from a higher to a lower level, an estimate of the "truncation error"
+(the accuracy with which the coarser equations represent the problem to
+be solved) is generated.  A truncation error estimate is not directly
+available at full resolution, but once iteration has been done at
+coarser resolution the truncation error can be extrapolated to full
+resolution.  It is not generally useful to refine solution beyond the
+level of accuracy set by the truncation error.  The RMS residual
+after each Newton-Raphson step is therefore compared to the truncation
+error estimate times TAUFAC.  If the residual is less, iteration at the
+current resolution is assumed to have converged. If this occurs while
+iterating at full resolution, the "Hints" area of the GUI will recommend
+that the user end iteration and output the current solution as TO;
+if it occurs at lower resolution, the hint will recommend that the user
+change to  the next higher resolution to continue iteration. The same
+hints are also given if the residual is less than ETOL.
+
+The default TAUFAC=1 causes the RMS truncation error to be used as
+the criterion for convergence.  Setting TAUFAC slightly less than 1
+may be reasonable to allow for more refinement in those areas of the
+DEM where the truncation errors are smaller than the RMS value.
+.VAR CPULIMIT
+May be set to prevent infinite (or merely excessive) iteration.
+The program will be terminated after an iteration that exceeds a
+total of CPULIMIT minutes of CPU time used.  If CPULIMIT=0.0
+(the default) then the program will never be stopped because of
+CPU time usage.
+.VAR MAXNR
+May be set to prevent infinite (or merely excessive) iteration.
+The program will be terminated after a total of MAXNR Newton-
+Raphson iteration steps. If MAXNR=0 the initial solution (from
+SSIPSF-PI method, datum, or ZIN file) will be output.
+.VAR NSMOOTH
+If NSMOOTH > 0, the initial solution (SSIPSF-PI or read from
+disk) for the topography will be smoothed NSMOOTH times with
+a 3x3 boxcar lowpass filter before iteration is begun.  If
+NSMOOTH < 0, the topography will be smoothed repeatedly until
+further smoothing does not reduce the rms residuals to the
+photoclinometric equations (this is much more expensive for
+the same number of smoothings, since the residuals must be
+calculated).  The smoothing is done after the first output
+to the ZOUT file (which can be smoothed with FLT32B if desired).
+The default is NSMOOTH=-1.
+.END

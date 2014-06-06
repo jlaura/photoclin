@@ -1,0 +1,336 @@
+!PHO_EMP_GLOBAL.PDF
+PROCESS HELP=*
+PARM TO     TYPE=(STRING,128)
+PARM WH     REAL,VALID=(0.0:1.0),DEFAULT=(0.52)
+PARM B0     REAL,DEFAULT=(0.0)
+PARM HH     REAL,VALID=(0.0:1.0),DEFAULT=(0.0)
+PARM THETA  REAL,VALID=(0.0:60.0),DEFAULT=(8.0)
+PARM PHASEFUNC TYPE=(STRING,25),VALID=(HENYEY-GREENSTEIN, +
+            LEGENDRE-POLYNOMIAL),DEFAULT=(HENYEY-GREENSTEIN)
+PARM HG1    REAL,DEFAULT=(0.213)
+PARM HG2    REAL,DEFAULT=(1.0)
+PARM BH     REAL,DEFAULT=(0.0)
+PARM CH     REAL,DEFAULT=(0.0)
+PARM DOATM  TYPE=(STRING,3),VALID=(YES,NO),DEFAULT=(NO)
+PARM TAU    REAL,VALID=(0.0:3.0),DEFAULT=(0.5)
+PARM HNORM  REAL,VALID=(0.0:0.01),DEFAULT=(0.003)
+PARM WHA    REAL,VALID=(0.0:1.0),DEFAULT=(0.9)
+PARM HGA    REAL,VALID=(-1.0:1.0),DEFAULT=(0.7)
+PARM IATM   TYPE=(STRING,3),VALID=(1ST,2ND),DEFAULT=(2ND)
+PARM IEMP   TYPE=(STRING,13),VALID=(LUNAR-LAMBERT,MINNAERT), +
+            DEFAULT=(LUNAR-LAMBERT)
+PARM IORD   TYPE=(STRING,3),VALID=(YES,NO),DEFAULT=(NO)
+PARM INCMIN REAL,VALID=(0.0:90.0),DEFAULT=(0.0)
+PARM INCMAX REAL,VALID=(0.0:90.0),DEFAULT=(89.0)
+PARM EMAMIN REAL,VALID=(0.0:90.0),DEFAULT=(0.0)
+PARM EMAMAX REAL,VALID=(0.0:90.0),DEFAULT=(70.0)
+PARM EMAMAX_PCOEFF REAL,VALID=(0.0:1.0), +
+            DEFAULT=(0.111111111111)
+PARM PHMIN  REAL,VALID=(0.0:180.0),DEFAULT=(0.0)
+PARM PHMAX  REAL,VALID=(0.0:180.0),DEFAULT=(170.0)
+PARM NPH    INTEGER,DEFAULT=(18),VALID=(2:1000)
+PARM NOTE   TYPE=(STRING,80),DEFAULT=("")
+END-PROC
+.TITLE
+PHO_EMP_GLOBAL - Fit empirical photometric functions to Hapke
+.HELP
+This program finds lunar-Lambert or Minnaert photometric functions
+to approximate a more realistic but more complex Hapke (1981; 1984;
+1986) model.  At each of a range of phase angles, the simpler model 
+is fit to the Hapke model by adjusting its one parameter and its 
+overall brightness so that the sum-squared-residual between the two 
+is minimized. Both the parameter (which, for both types of simple 
+model, mainly controls limb darkening) and the brightness (normalized 
+as an empirical phase curve) are reported in a table against phase 
+angle. In this program, the fit is over a portion of the visible 
+hemisphere of an idealized planet, and a table of results vs phase 
+angle is output.  This type of fit is useful for building an empirical
+photometric function to be used in program photomet for normalizing
+images for mosaicking.  The companion program pho_emp_local can be
+used to perform a single fit at fixed incidence/emission/phase
+geometry to determine the photometric parameter for photoclinometry
+with a particular image.
+
+For the original description of the fitting process and a useful
+compilation of Hapke parameters from the scientific literature, 
+see McEwen (1991). The atmospheric model used in the fits
+is discussed by Kirk et al. (2000, 2001).
+
+The following Hapke parameters for Mars are from Johnson
+et al. (1999) for IMP data of Photometry Flats (soil)
+and may be reasonably representative of Mars as a whole.
+Note that (HG1, HG2=1.0) is equivalent to (-HG1, HG2=0.0)
+
+Band    WH     B0     HH    HG1    HG2
+Red    0.52  0.025  0.170  0.213  1.000
+Green  0.29  0.290  0.170  0.190  1.000
+Blue   0.16  0.995  0.170  0.145  1.000
+
+Kirk et al. (2000) found that Mars whole-disk limb-darkening
+data of Thorpe (1973) are consistent with THETA=30, but
+results of Tanaka and Davis (1988) based on matching
+photoclinometry of local areas to shadow data are more
+consistent with THETA=20 when the domain of the fit is
+restricted to small emission angles (=< 20 degrees).
+
+Values of the photometric parameters for the martian atmosphere, 
+adopted from Tomasko et al. (1999) are:
+
+Band    WHA     HGA
+Red    0.95     0.68
+Blue   0.76     0.78
+
+Hapke, B. W., 1981. Bidirectional reflectance spectroscopy 
+   1: Theory. J. Geophys. Res., pp. 86,3039-3054.
+
+Hapke, B., 1984. Bidirectional reflectance spectroscopy 
+   3: Corrections for macroscopic roughness. Icarus, 59, pp. 41-59.
+
+Hapke, B., 1986. Bidirectional reflectance spectroscopy 
+   4: The extinction coefficient and the opposition effect. 
+   Icarus, 67, pp. 264-280.
+
+Johnson, J. R., et al., 1999, Preliminary Results on Photometric 
+   Properties of Materials at the Sagan Memorial Station, Mars, 
+   J. Geophys. Res., 104, 8809. 
+
+Kirk, R. L., Thompson, K. T., Becker, T. L., and Lee, E. M., 
+   2000. Photometric modelling for planetary cartography. 
+   Lunar Planet. Sci., XXXI, Abstract #2025, Lunar 
+   and Planetary Institute, Houston (CD-ROM).
+
+Kirk, R. L., Thompson, K. T., and Lee, E. M., 2001. 
+   Photometry of the martian atmosphere:  An improved 
+   practical model for cartography and photoclinometry. 
+   Lunar Planet. Sci., XXXII, Abstract #1874, Lunar 
+   and Planetary Institute, Houston (CD-ROM). 
+
+McEwen, A. S., 1991. Photometric functions for photo-
+   clinometry and other applications.  Icarus, 92, pp. 298-311.
+
+Tanaka, K. L., and and Davis, P. A., 1988, Tectonic History of 
+   the Syria Planum Provice of Mars, J. Geophys. Res., 93, 14,893. 
+
+Thorpe, T. E., 1973, Mariner 9 Photometric Observations of Mars 
+   from November 1971 through March 1972, Icarus, 20, 482.
+
+Tomasko, M. G., et al., 1999, Properties of Dust in the Martian 
+   Atmosphere from the Imager on Mars Pathfinder, J. Geophys. Res., 
+   104, 8987
+
+Programmer: Randolph Kirk, U.S.G.S., Flagstaff, AZ
+.LEVEL1
+.VAR TO
+Output file contains fits
+.VAR WH
+Single scattering albedo of
+surface particle
+.VAR B0
+Magnitude of opposition surge 
+.VAR HH
+Opposition surge width h
+.VAR THETA
+Macroscopic surface roughness
+.VAR PHASEFUNC
+Type of single particle 
+phase function
+.VAR HG1
+Henyey-Greenstein asymmetry
+parameter for single particle
+for PHASEFUNC=HENYEY-GREENSTEIN
+.VAR HG2
+2nd Henyey-Greenstein parameter
+controls mix of +HG1, -HG1
+components for PHASEFUNC=
+HENYEY-GREENSTEIN
+.VAR BH
+Coefficient of P1(cos(phase)) 
+in single particle phase
+function for PHASEFUNC=LEGENDRE
+.VAR CH
+Coefficient of P2(cos(phase)) 
+in single particle phase
+function for PHASEFUNC=LEGENDRE
+.VAR DOATM
+Include atmosphere in model? 
+.VAR TAU
+Normal atmospheric optical depth 
+.VAR WHA
+Single-scattering albedo of
+atmospheric particles. 
+.VAR HGA
+Coeff of atmospheric particle
+Henyey-Greenstein phase fn.
+.VAR HNORM
+Atmospheric shell thickness
+normalized to planet radius.
+Default 0.003 is for Mars.
+.VAR IATM
+Order of approximation in
+atmospheric scatter model
+.VAR IEMP
+Type of photometric function
+to fit (lunar-lambert, Minnaert)
+.VAR IORD
+Allow additive offset in 
+fit?  (used with DOATM)
+.VAR INCMIN
+Minimum incidence angle
+for fit
+.VAR INCMAX
+Maximum incidence angle
+for fit
+.VAR EMAMIN
+Minimum emission angle
+for fit
+.VAR EMAMAX
+Maximum emission angle
+for fit
+.VAR EMAMAX_PCOEFF
+Fraction of phase angle 
+to add to maximum
+emission angle
+.VAR PHMIN
+Minimum phase angle for
+output table
+.VAR PHMAX
+Maximum phase angle for
+output table
+.VAR NPH
+Number of phase angles
+.VAR NOTE
+Note for output file
+.LEVEL2
+.VAR TO
+This output is an ASCII file containing a header recording
+all parameter values including the user NOTE, followed by a
+table with one row for each phase angle.  Columns give the
+phase angle, best-fit limb darkening parameter, best-fit
+brightness both in absolute units and relative to the
+zero-phase model, and RMS residual to the fit.
+.VAR WH
+Single-scattering albedo of surface particles. See 
+Hapke (1981).  Not to be confused with albedo WHA of the 
+atmospheric particles.
+.VAR B0
+Magnitude of the opposition effect for the surface.  See 
+Hapke (1984).
+.VAR HH
+Width parameter for the opposition effect for the surface
+See Hapke (1984).
+.VAR THETA
+"Macroscopic roughness" of the surface as it affects the
+photometric behavior.  This is the RMS slope at scales 
+larger than the distance photons penetrate the surface but 
+smaller than a pixel.  See Hapke (1986).  
+.VAR HG1
+Asymmetry parameter used in the Henyey-Greenstein model
+for the scattering phase function of single particles
+in the surface, used if PHASEFUNC=HENYEY-GREENSTEIN.  See Hapke
+(1981).  The two-parameter Henyey-Greenstein function is
+P(phase) = (1-HG2) * (1-HG1**2)/(1+HG1**2+2*HG1*COS(PHASE))**1.5
+         +    HG2  * (1-HG1**2)/(1+HG1**2-2*HG1*COS(PHASE))**1.5
+.VAR HG2
+Second parameter of the two-parameter Henyey-Greenstein
+model for the scattering phase function of single particles
+in the surface, used if PHASEFUNC=HENYEY-GREENSTEIN.  This 
+parameter controls a the proportions in a linear mixture 
+of ordinary Heneyey- Greenstein phase functions with 
+asymmetry parameters equal to +HG1 and -HG1.  See HG1 for
+the full formula.
+.VAR BH
+When PHASEFUNC=LEGENDRE, a two-term Legendre polynomial
+is used for the scattering phase function of single 
+particles in the surface
+P(phase) = 1 + BH * P1(COS(PHASE)) + CH * P2(COS(PHASE))
+.VAR CH
+When PHASEFUNC=LEGENDRE, a two-term Legendre polynomial
+is used for the scattering phase function of single 
+particles in the surface
+P(phase) = 1 + BH * P1(COS(PHASE)) + CH * P2(COS(PHASE))
+.VAR DOATM
+If YES, an atmospheric scattering model will be applied
+in addition to the surface Hapke model. This atmospheric
+model uses a Hapke-like approach of combining an anisotropic
+model for multiple scattering with an isotropic model (one
+parameter Henyey-Greenstein) for single scattering.  The
+atmospheric scattering both attenuates the surface signal
+and adds its own contribution to the radiance.  If DOATM=
+YES it therefore makes sense to also set IORD=YES so that
+the additive contribution of the atmosphere will be modeled
+by an additive constant in the fit.
+.VAR TAU
+Normal optical depth of atmosphere.
+.VAR WHA
+Single-scattering albedo of atmospheric particles. Not to be 
+confused with albedo WH of the surface particles.
+.VAR HGA
+Henyey-Greenestein asymmetry parameter for atmospheric particle
+phase function, Not to be confused with corresponding parameter 
+HG1 for the surface particles.
+.VAR IATM
+Order of approximation used in the isotropic part of the 
+Atmospheric scattering model.  The second-order model (IORD=2)
+is slightly slower but more accurate and is preferred.
+.VAR IEMP
+Determines which empirical photometric function will be fitted
+to the Hapke model.  Choices are 
+
+Lunar-Lambert
+FUNC=B(phase) * ((1-L)*u0 + 2*L*u0/(u0+u))
+
+Minnaert
+FUNC=B(phase) * u0**K(phase) * u**(K(phase)-1)
+
+The tables of B and L or B and K can be used with the
+lunar-Lambert empirical or Minnaert empirical photometric
+functions in the photometric normalization program photomet.
+Output from this program will have to be reformatted as 
+described in photomet.pdf
+.VAR IORD
+If YES, the fit to the Hapke model will include not only the
+empirical photometric function (lunar-Lambert or Minnaert) but
+a constant offset at each phase angle.  This term represents
+additive atmospheric scattering, so IORD=YES is intended to
+be used with DOATM=YES.
+.VAR INCMIN
+Minimum incidence angle included in the fit.
+The empirical photometric function will be fitted to the Hapke
+model over a portion of the visible hemisphere of an idealized
+planet, with 
+      INCMIN =< incidence angle =< INCMAX
+      EMAMIN =< emission angle =< EMAMAX + EMAMAX_PCOEFF * phase
+INCMIN and EMAMIN are normally set to 0 and INCMAX and EMAMAX 
+to values approaching 90 to exclude only limited regions near the
+limb and terminator from the fit.  EMAMAX_PCOEFF allows the 
+emission angle limit to increase slightly at high phase angles,
+because otherwise the region of fit becomes very small.
+.VAR INCMAX
+Maximum incidence angle included in the fit.
+See INCMIN for details.
+for fit
+.VAR EMAMIN
+Minimum emission angle included in the fit.
+See INCMIN for details.
+for fit
+.VAR EMAMAX
+Maximum emission angle included in the fit.
+See INCMIN for details.
+.VAR EMAMAX_PCOEFF
+EMAMAX_PCOEFF allows the range of emission angles included
+in the fit to increase slightly at high phase angles,
+because otherwise the region of fit becomes very small.
+See INCMIN for details.
+.VAR PHMIN
+Minimum phase angle at which a fit will be performed, 
+corresponding to the first row of the output table.
+.VAR PHMAX
+Maximum phase angle at which a fit will be performed, 
+corresponding to the last row of the output table.
+.VAR NPH
+Number of phase angles at which a fit will be performed,
+equal to the number of rows in the output table.
+.VAR NOTE
+User note that will be included in the header of the 
+output file.  Maximum 80 characters.
+.END

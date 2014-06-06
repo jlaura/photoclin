@@ -1,0 +1,66 @@
+ 
+ 
+GROUP = PC2D
+  ISISVERSION = "2.1.4-0beta"
+  VERSION_DATE = 2003-06-20
+  DATE_TIME = 2004-06-02T16:58:00
+  NODE_NAME = "Gizmo"
+  USER_NAME = "jbarrett"
+  SOFTWARE_DESC = "Perform interactive photoclinometry"
+  GROUP = PARAMETERS
+    FROM = "/Volumes/Work/kbecker/LunarOrbiter/linemap.cub"
+    TO = "junk.cub"
+    ZOUT = "zout.cub"
+    ZIN = NULL
+    LOGFILE = NULL
+    NOTE = "NONE"
+Initial topographic estimate from SSIPSF-PI (no ZIN file)
+    SFROM = NULL
+    MAXMEM = 12000000
+    DNATM = 0.000000
+    DNDATUM = 0.100000
+    DATUMTYP = 1
+    X = NULL
+    Y = NULL
+    DISTORTD = "NO"
+    PHOFUNC = "LAMBER"
+    WH = NULL
+    HG1 = NULL
+    HG2 = NULL
+    HH = NULL
+    B0 = NULL
+    THETA = NULL
+    BH = NULL
+    CH = NULL
+    K = NULL
+    L = NULL
+ [PGETLITKEY-INVKEY] (-4) Error searching for TARGET_NAME keyword
+X= 5900.500000
+Y= 4375.500000
+RADIUS= 0.000000
+Dip of datum= nan
+Azimuth of dip= nan
+Azimuth of characteristics= nan
+Resolution (km/pix) = nan
+Aspect = 1.000000
+Emission angle = nan
+Incidence angle = nan
+Phase angle = nan
+Spacecraft azimuth = nan
+Sun azimuth = nan
+    ALPHA = 10000.00000
+    ALPHAASYM = 10000.00000
+    STEPASYM = 1000000.00000
+    WMAX = 1.50000
+    DIVTOL = 300.00000
+    ITMAX = 10
+    ETOL = 0.00001
+    BIGTOL = 0.10000
+    OLDTOL = 0.80000
+    DEPTHLIM = 10
+ [FIRSTGUESS-MAXMEM] (-21) The amount of memory specified (MAXMEM) is too
+small for this image.
+ [INITPCP-SOLNERR] (-8) Unable to generate an initial solution for
+topography
+  END_GROUP = PARAMETERS
+END_GROUP = PC2D
