@@ -1,0 +1,17 @@
+<RCC>
+  <qresource>
+    <file>icons/pause.png</file>
+    <file>icons/play.png</file>
+    <file>icons/stepb.png</file>
+    <file>icons/stepf.png</file>
+    <file>icons/stop.png</file>
+    <file>icons/roi.png</file>
+    <file>icons/link.png</file>
+    <file>icons/next.png</file>
+    <file>icons/pan.png</file>
+    <file>icons/previous.png</file>
+    <file>icons/zoomin.png</file>
+    <file>icons/zoomout.png</file>
+    <file>icons/home.png</file>
+  </qresource>
+</RCC>

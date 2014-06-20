@@ -1,0 +1,37 @@
+#
+# Makefile for ISIS I/O primitive object files
+#
+#   This Makefile ensures that all the object units are up to
+#   date.
+#
+include $(ISISMAKE)/isis_system.rules
+include $(ISISMAKE)/isis2idl.rules
+
+#
+# Set LIB to the name of the library
+#
+EXES=libisisuser.so
+
+#
+#  Set any compiler flags here
+#
+OPT_CFLAGS=$(CCPICOPT)
+OPT_FFLAGS=$(FCPICOPT)
+
+
+#
+# List the sources and object module names
+#
+SRCS = my_pht_userF.F my_pht_user_bind_F.c
+
+OBJS = my_pht_userF.o my_pht_user_bind_F.o
+
+
+# A call to make will build all the object files that are out of date
+$(EXES):    $(OBJS)
+	$(CC) $(LDFLAGS)  $(LDIDLOPTS)  $(LIBDIRS) -o $@ $(OBJS) -lisis \
+	$(ISISLINKLIB) $(SYSLIBS)
+
+# A call to 'make clean' removes all the object files and the library
+clean:
+	-$(RM) $(EXES) $(OBJS);

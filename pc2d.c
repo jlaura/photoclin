@@ -149,6 +149,14 @@ int PC2D (int argc, char *argv[])
 /  Initialize the photoclinometry driver 
 /---------------------------------------------------------------------------*/
 
+  printf(n1+1)
+  printf(nx)
+  printf(ny)
+  printf(&weknown)
+  printf(&n1lmag)
+  printf(&n2lmag)
+  printf( &n4lmag,&nxlmag,&nylmag,&wrtimg,&mag,&minmag,res[0],azinc[0],
+    fastinj,&ret)
   (void) xcmain_gui(&cdum[n1],n1+1,nx,ny,0,0,&aeknown,&n1lmag,&n2lmag,
     &n4lmag,&nxlmag,&nylmag,&wrtimg,&mag,&minmag,res[0],azinc[0],
     fastinj,&ret);

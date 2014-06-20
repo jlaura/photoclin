@@ -590,7 +590,7 @@ INT4 FirstGuess (void)
   strcat(pcpdatafile[2],timdat);
   strcat(pcpdatafile[2],".cub");
   (void) u_fill4(0.0,(nx+1)*(ny+1),&cdum[n4]);
-  pcpdata[2] = pcpdata[1];
+  pcpdata[2] = pcpdata?[1];
   pcpdata[2].fileid = 0;
   (void) u_type_keys(pcpdata[2].pixel_type,&pcpdata[2].item_bytes,
                      pcpdata[2].core_type,sizeof(pcpdata[2].core_type),&ret);
