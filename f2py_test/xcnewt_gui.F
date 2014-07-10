@@ -1,0 +1,608 @@
+      SUBROUTINE XCNEWT_GUI(B,Z,E,DZ,DDZ,A,DL,WK,ABAND,ALOW,NX,NY,
+     *NI,LMAG,AEKNOWN,ERMS,DBRMS,ZRMS,TAURMS,ERMSBIG,METHOD,BDER,WRTIMG,
+     *RES,AZINC)
+      IMPLICIT NONE
+C
+C_TITLE XCNEWT_GUI - CALCULATES SUBSEQUENT APPROXIMATIONS OF THE ALTITUDE ARRAY
+C
+#include "clinom_aepar.inc"
+#include "clinom_ipars.inc"
+#include "clinom_log.inc"
+#include "clinom_mem.inc"
+#include "clinom_ops.inc"
+#include "clinom_plots.inc"
+C_ARGS  TYPE          VARIABLE              I/O  DESC
+        INTEGER*4     NX                     ! I
+        INTEGER*4     NY                     ! I
+        REAL*4        B(NX,NY)               ! I
+        REAL*4        Z(NX+1,NY+1)           ! I
+        REAL*4        E(NX+1,NY+1)           ! O
+        REAL*4        DZ(NX+1,NY+1)          ! O
+        REAL*4        DDZ(NX+1,NY+1)         ! B
+        REAL*4        A(5,NX+1,NY+1)         ! O
+        REAL*4        DL(5,NX+1,NY+1)        ! O
+        REAL*4        WK(NX+1,NY+1)          ! O
+        REAL*4        ABAND(NX+1,NY+1,2*NX+5)! O
+        REAL*4        ALOW(NX+1,NY+1,NX+2)   ! I
+        INTEGER*4     NI                     ! B
+        INTEGER*4     LMAG                   ! I
+        LOGICAL*1     AEKNOWN                ! B
+        REAL*4        ERMS                   ! O
+        REAL*4        DBRMS                  ! O
+        REAL*4        ZRMS                   ! O
+        REAL*4        TAURMS                 ! I
+        REAL*4        ERMSBIG                ! I
+        CHARACTER*(*) METHOD                 ! I
+        REAL*4        BDER                   ! I
+	LOGICAL*1     WRTIMG                 ! O
+	REAL*8        RES                    ! I
+	REAL*8        AZINC                  ! I
+C
+C_DESC CALCULATES SUBSEQUENT APPROXIMATIONS OF THE ALTITUDE ARRAY Z
+C      BY APPLYING SUCCESSIVE OVER-RELAXATION TO SUCCESSIVE LINEARIZATIONS
+C      OF THE PC EQUATIONS WITH A FLATNESS CONSTRAINT IMPOSED BY THE
+C      PENALTY METHOD.
+C
+C_HIST  Dec 10 1996 Randolph Kirk, USGS, Flagstaff - Original Version
+C       May 06 1998 Tracie Sucharski, Converted to UNIX/ISIS
+C       Jul 21 2002 RLK Pass IOCT to control SOR/ICCG sweep dir
+C       Jul 26 2002 RLK Add variable penalty number
+C                       Add code for ICCG
+C
+C_END
+
+      LOGICAL*1   LSOK,ANSWER,CONV,SLOW,DODIR,DOCGM
+
+      INTEGER*4   NB,NX1,NY1,NZ,MAG,NL,NLINC,NLMAX
+      INTEGER*4   NII,IBAD,ICHECK,JCHECK,IRET,NNULL
+      INTEGER*4   LMMAX,I,J
+
+      REAL*4      FMAG,FOPS,DZRMS,DDZRMS,W,WRAT,ERMSL
+      REAL*4      WOLD,ERMSLOLD,DZRMS2OLD,DZRMSOLD,DDZRMSOLD
+      REAL*4      CDZRMS,XFRX,XMIN,TOL,R,CZRMS,WFAC,DDZMAX
+      REAL*4      DUM1,DUM2,DUM3,PSNORM,DDZRAT,ZRMSOLD,ERMSOLD
+      REAL*4      XFRC,XNORM,XADB,XMLT,dzmax,YPNTS(0:50)
+
+      CHARACTER   STR1*512,STR2*512
+
+      REAL*4 SCLHT,DIP,DIPAZ,SUNDIP,RMSDN,RMSPIX,RMSM
+
+      INTEGER*4 PGOPEN,FIRST,SORID,NRID
+      DATA FIRST/1/
+
+      EXTERNAL BDER
+      DATA NL /0/
+      COMMON /CHECK/ NX1,NY1,ICHECK,JCHECK
+
+      IF (FIRST.EQ.1) THEN
+        DO I = 0,50
+	  YPNTS(I) = I
+	ENDDO
+	SORID = PGOPEN('/XWIN')
+	IF (SORID.LE.0) THEN
+          WRITE (STR1,'(A)') 
+     *      'CANNOT OPEN A PLOTTING WINDOW.'
+          CALL PCPLOG(STR1,1)
+	  WRTIMG=.FALSE.
+	  RETURN
+	ENDIF
+	CALL PGASK(.FALSE.)
+	NRID = PGOPEN('/XWIN')
+	IF (NRID.LE.0) THEN
+	  WRITE (STR1,'(A)')
+     *      'CANNOT OPEN A PLOTTING WINDOW.'
+          CALL PCPLOG(STR1,1)
+	  WRTIMG=.FALSE.
+	  RETURN
+        ENDIF
+	CALL PGASK(.FALSE.)
+        CALL PGSLCT(SORID)
+        CALL PGSAVE
+	CALL PGSCH(1.4)
+	CALL PGENV(1.,30.,-6.0,0.0,0,20)
+c	CALL PGLAB('SOR Step','Residuals','Residual vs. SOR Step')
+	CALL PGMTXT('T',2.0,.5,.5,'Residual vs. SOR Step')
+	CALL PGMTXT('B',3.2,.5,.5,'SOR Step')
+	CALL PGMTXT('L',2.2,.5,.5,'Residuals')
+	CALL PGSCR(16,0.0,0.54,0.1)
+	CALL PGSCR(17,0.63,0.69,0.8)
+	CALL PGSCR(18,0.45,0.56,0.8)
+	CALL PGSCR(19,0.29,0.45,0.78)
+	CALL PGSCR(20,0.12,0.3,0.67)
+	CALL PGSCR(21,0.03,0.18,0.47)
+	CALL PGSCR(22,0.83,0.75,0.6)
+	CALL PGSCR(23,0.87,0.7,0.38)
+	CALL PGSCR(24,0.88,0.64,0.2)
+	CALL PGSCR(25,0.77,0.51,0.02)
+	CALL PGSCR(26,0.5,0.32,0.0)
+	CALL PGSLW(3)
+	CALL PGUNSA
+        CALL PGSLCT(NRID)
+        CALL PGSAVE
+	CALL PGSCR(16,0.0,0.54,0.1)
+	CALL PGSCR(17,0.63,0.69,0.8)
+	CALL PGSCR(18,0.45,0.56,0.8)
+	CALL PGSCR(19,0.29,0.45,0.78)
+	CALL PGSCR(20,0.12,0.3,0.67)
+	CALL PGSCR(21,0.03,0.18,0.47)
+	CALL PGSCR(22,0.83,0.75,0.6)
+	CALL PGSCR(23,0.87,0.7,0.38)
+	CALL PGSCR(24,0.88,0.64,0.2)
+	CALL PGSCR(25,0.77,0.51,0.02)
+	CALL PGSCR(26,0.5,0.32,0.0)
+	CALL PGSCH(1.4)
+	CALL PGENV(1.,50.,-6.0,0.0,0,20)
+c	CALL PGLAB('NR Step','Residuals','Residual vs. NR Step')
+        CALL PGSCI(19)
+	CALL PGMTXT('T',2.0,0.0,0.0,'ERMS')
+        CALL PGSCI(16)
+	CALL PGMTXT('T',2.0,.5,.5,'DBRMS')
+        CALL PGSCI(24)
+	CALL PGMTXT('T',2.0,1.0,1.0,'DZRMS')
+	CALL PGSCI(1)
+c	CALL PGMTXT('T',2.0,.5,.5,'Residual vs. NR Step')
+	CALL PGMTXT('B',3.2,.5,.5,'# Of NR Steps')
+	CALL PGMTXT('L',2.2,.5,.5,'Residuals')
+	CALL PGSLW(3)
+	CALL PGUNSA
+	FIRST=0
+      ENDIF
+      DOCGM=(METHOD(1:1).EQ.'C')
+      DODIR=(METHOD(1:1).EQ.'D')
+      FMAG=REAL(2**LMAG)
+      MAG=INT(FMAG)
+      IF (WMAX.GT.1.0) WFAC=0.25*(1.0-(2.0/WMAX-1.0)**2.0)
+      NB=NX*NY
+      NX1=NX+1
+      NY1=NY+1
+      NZ=NX1*NY1
+      IF ((.NOT.AEKNOWN).OR.(NI.LT.0)) THEN
+        IF (.NOT.AEKNOWN) 
+     *CALL AE1CALC(B,Z,E,A,NX,NY,ERMS,DBRMS,ZRMS,1,BDER)
+        AEKNOWN=.TRUE.
+        NI=ABS(NI)
+        NL=0
+        FOPS=NOPS*1.0E-6
+        IF (LOGIT) WRITE (IULOG,'(/)')
+        IF (LOGIT) WRITE (IULOG,'(I3,1X,F9.4,1X,I2,2X,F8.5,
+     *1X,F17.8,1X,F15.8,1X,F13.6)',ERR=3000) NL,FOPS,MAG,CONTRAST,
+     *ERMS,DBRMS,ZRMS*FMAG/ASPECT 
+        WRITE (STR1,'(I3,1X,F9.2,1X,I2,2X,F8.5,
+     *1X,F17.8,1X,F15.8,1X,F13.6)',ERR=3000) NL,FOPS,MAG,CONTRAST,
+     *ERMS,DBRMS,ZRMS*FMAG/ASPECT 
+        CALL PCPLOG(STR1,0)
+ 3000   CONTINUE
+      END IF
+      WRITE (STR1,1000,ERR=3010) MAG
+ 1000 FORMAT('MAGNIFICATION ',I2,'.  INITIAL VALUES:')
+      CALL PCPLOG(STR1,1)
+      WRITE (STR1,1001,ERR=3010) ERMS,DBRMS,ZRMS*FMAG/ASPECT,TAURMS
+ 1001 FORMAT('RHS ',F14.7,', B ERR ',F14.7,', Z ',F14.7,
+     *', TRUNC ERR ',F10.7)
+      CALL PCPLOG(STR1,1)
+ 3010 CONTINUE
+   10 NLINC=1
+      NLMAX=NL+NLINC
+C START LOOP FOR ITERATIVE SOLUTION TO NONLINEAR PENALTY EQUATION
+   20 CONTINUE
+         NI=NI+1
+         NL=NL+1
+         DZRMS=0.
+         DDZRMS=0.
+         IF (DODIR) THEN
+C DO DIRECT (BUT BANDED) LU-DECOMPOSITION SOLUTION OF TANGENT EQUATION
+            CALL S9BAND(E,DZ,DDZ,A,ABAND,ALOW,NX1,NY1,DZRMS)
+         ELSE
+            W=1.0
+            WRAT=1.0
+            IF (WMAX.LT.1.0) W=WMAX
+            IF (DOCGM) CALL S9ICHOL(A,DL,NX1,NY1,IBAD,IOCT)
+            WRITE (STR1,1020) NI,MAG
+ 1020       FORMAT('ITERATION ',I4,'  MAG ',I2)
+            CALL PCPLOG(STR1,1)
+            WRITE (STR1,1021) METHOD
+ 1021       FORMAT(A,' STEP   ',
+     *     'RMS OLD DZ   RMS NEW DZ   RMS D(DZ)   D(RMS DZ)',
+     *     '      RMS RH-SIDE')
+            CALL PCPLOG(STR1,1)
+            NII=0
+	    SORPLOTIDX(SORPLOT) = 0
+            ERMSL=ERMS
+            CALL U_FILL4(0.0,NZ,DZ)
+C START INNER LOOP FOR SOR SOLUTION TO TANGENT EQUATION
+   30       CONTINUE
+	       ERMSL_PLOT(SORPLOTIDX(SORPLOT),SORPLOT) = ERMSL
+	       DDZRMS_PLOT(SORPLOTIDX(SORPLOT),SORPLOT) = DDZRMS/ASPECT
+	       SORPLOTIDX(SORPLOT) = SORPLOTIDX(SORPLOT) + 1
+               NII=NII+1
+               WOLD=W
+               IF ((NII.GT.1).AND.(WMAX.GT.1.0)) W=1.0/(1.0-WFAC*W)
+               ERMSLOLD=ERMSL
+               DZRMS2OLD=DZRMSOLD
+               DZRMSOLD=DZRMS
+               DDZRMSOLD=DDZRMS
+               IF (DOCGM) THEN
+                  CALL S9CGM(E,DZ,DDZ,A,DL,WK,NX1,NY1,
+     *            ERMSL,DZRMS,DDZRMS,DDZMAX,1,NII,IOCT)
+               ELSE
+                  CALL S9RELAX(E,DZ,DDZ,WK,A,NX1,NY1,W,
+     *            ERMSL,DZRMS,DDZRMS,DDZMAX,IOCT)
+               END IF
+               ERMSL=ERMSL/CONTRAST
+               IF (.NOT.LOGIMG) ERMSL=ERMSL/(BNORM*BNORM)
+               CDZRMS=DZRMS-DZRMSOLD
+               WRITE (STR1,1030,ERR=3020) 
+     *         NII,DZRMSOLD*FMAG/ASPECT,DZRMS*FMAG/ASPECT,
+     *         DDZRMS*FMAG/ASPECT,CDZRMS*FMAG/ASPECT,
+     *         ERMSL
+ 1030          FORMAT(5X,I2,5X,F9.5,4X,F9.5,4X,F9.5,3X,F9.5,3X,F14.7)
+               CALL PCPLOG(STR1,1)
+ 3020          CONTINUE
+               IF ((ICHECK.GE.1).AND.(ICHECK.LE.NX+1).AND.
+     *             (JCHECK.GE.1).AND.(JCHECK.LE.NY+1)) THEN
+                 WRITE (STR1,1031,ERR=3021) ICHECK,JCHECK,
+     *           (Z(ICHECK,JCHECK)+DZ(ICHECK,JCHECK))*FMAG/ASPECT
+ 1031            FORMAT('Z(',I4,',',I4,')= ',F15.5)
+                 CALL PCPLOG(STR1,1)
+               ENDIF
+ 3021          CONTINUE
+               IF (ITMAX.EQ.1) GO TO 40
+               IF (NII.LE.1) GO TO 30
+               IF (WMAX.GT.1.0) WRAT=(W/WOLD)**2.0
+               IF ((DDZRMS/(1.3*WRAT).GT.DDZRMSOLD).OR.
+     *          (DDZMAX.GT.DDZRMS*DIVTOL)) THEN
+                  CALL BELL
+                  NLINC=0
+                  NLMAX=NL-1
+                  WRITE (STR1,'(A)') 
+C     *              'SOR SOLUTION APPEARS TO BE DIVERGING.'
+     *              'SOR SOLUTION IS DIVERGING.'
+                  CALL HINTERROR(STR1,'',0)
+C                  CALL PCPLOG(STR1,1)
+C                  CALL YN2TF('PROCEED WITH SOR ITERATION ANYWAY?',
+C     *            ANSWER)
+C                  IF (.NOT.ANSWER) THEN
+C                     CALL YN2TF('USE DZ PRIOR TO DIVERGENT STEP'//
+C     *' (ALTERNATIVE IS TO ABORT)?',ANSWER)
+C                     IF (ANSWER) THEN
+                        CALL INC(DZ,DDZ,NZ,-1.0,DUM1,DUM2,DUM3,0)
+                        CALL INC(DDZ,DDZ,NZ,-2.0,DUM1,DUM2,DUM3,0)
+                        CALL S9RHSDEC(E,A,DDZ,NX1,NY1,ERMSL)
+                        ERMSL=ERMSL/CONTRAST
+                        IF (.NOT.LOGIMG) ERMSL=ERMSL/(BNORM*BNORM)
+C                        ERMSL=ERMSL/(PSNORM*PSNORM*CONTRAST)
+                        DDZRMS=DDZRMSOLD
+                        DZRMS=DZRMSOLD
+                        DZRMSOLD=DZRMS2OLD
+                        CDZRMS=DZRMS-DZRMSOLD
+                        GO TO 40
+C                     END IF
+C                     NI=NI-1
+C                     RETURN
+C                  END IF
+               END IF
+            DDZRAT=DDZRMS/(DZRMS*DDZTOL)
+            IF ((NII.LT.ITMAX).AND.((DDZRAT.GT.2.0).OR.
+     *      ((NL.GT.1).AND.(DDZRAT.GT.1.0)))) GO TO 30
+	    ERMSL_PLOT(SORPLOTIDX(SORPLOT),SORPLOT) = ERMSL
+	    DDZRMS_PLOT(SORPLOTIDX(SORPLOT),SORPLOT) = DDZRMS/ASPECT
+	    SORPLOTIDX(SORPLOT) = SORPLOTIDX(SORPLOT) + 1
+C INCREMENT ALTITUDES BY SOLUTION TO TANGENT EQUATION:
+   40       CONTINUE
+         END IF
+         ZRMSOLD=ZRMS
+         ERMSOLD=ERMS
+C DESPIKE THE INCREMENT TO Z
+         IF ((NDS(1).GT.1).AND.(NDS(2).GT.1).AND.
+     *              (STD(1).GT.0.0).AND.(STD(2).GT.0.0)) THEN
+            XFRC=0.0
+            XMIN=REAL(NDS(1))
+            TOL=1000.0
+            CALL FASTFIL32(DZ,DDZ,E(1,1),E(1,2),E(1,3),NY1,NX1,
+     *      NDS(1),NDS(1),XFRC,XMIN,XNORM,XADB,XMLT,TOL,STD(1),
+     *      'STDZ',IRET)
+            CALL U_MOVE4(NZ,DDZ,DZ)
+            CALL NULLCOUNT32(DZ,NZ,NNULL)
+            DO WHILE (NNULL.GT.0)
+               XFRC=0.0
+               XMIN=REAL(NDS(2))
+               CALL FASTFIL32(DZ,DDZ,E(1,1),E(1,2),E(1,3),NY1,NX1,
+     *         NDS(2),NDS(2),XFRC,XMIN,XNORM,XADB,XMLT,TOL,STD(2),
+     *         'STD',IRET)
+               CALL U_MOVE4(NZ,DDZ,DZ)
+               CALL NULLCOUNT32(DZ,NZ,NNULL)
+            ENDDO
+C A LINE-SEARCH FOR OPTIMAL R COULD BE DONE HERE
+            R=1.0
+            CALL INC(Z,DZ,NZ,R,ZRMS,DZRMS,DZMAX,1)! RECALCULATE DZRMS
+         ELSE
+C A LINE-SEARCH FOR OPTIMAL R COULD BE DONE HERE
+            R=1.0
+            CALL INC(Z,DZ,NZ,R,DUM1,DUM2,DUM3,0)  ! DZRMS UNCHANGED
+         END IF
+C Update penalty number for next iteration
+         AL=ALASYM+(AL-ALASYM)*ALRAT
+         CALL AE1CALC(B,Z,E,A,NX,NY,ERMS,DBRMS,ZRMS,1,BDER)
+         CZRMS=ZRMS-ZRMSOLD
+         WRITE (STR1,1040,ERR=3030) NI,ERMS,DBRMS
+ 1040    FORMAT('ITERATION ',I4,' COMPLETE.  RMS RHS ',F14.7,
+     *', RMS B ERR ',F14.7)
+         CALL PCPLOG(STR1,1)
+	 WRITE (STR1,'(F14.7,A)') ERMS,','
+	 WRITE (STR2,'(F14.7)') DBRMS
+	 CALL HINTERROR(STR1,STR2,2)
+         WRITE (STR1,1041,ERR=3030)
+ 1041    FORMAT('LS PARAMETER  RMS OLD  Z   RMS NEW  Z   RMS',
+     *'  D(Z)   D(RMS  Z)')
+         CALL PCPLOG(STR1,1)
+         WRITE (STR1,1042,ERR=3030)
+     *   R,ZRMSOLD*FMAG/ASPECT,ZRMS*FMAG/ASPECT,DZRMS*FMAG/ASPECT,
+     *   CZRMS*FMAG/ASPECT
+ 1042    FORMAT(3X,F9.5,3X,F9.5,4X,F9.5,4X,F9.5,3X,F9.5)
+         CALL PCPLOG(STR1,1)
+ 3030    CONTINUE
+         CONV=(ERMS.LT.ETOL)
+         IF (TAURMS.NE.0.0) THEN
+            WRITE (STR1,1050,ERR=3040) ERMS/TAURMS
+ 1050       FORMAT('RHS/EST TRUNC ERROR=',F14.7)
+            CALL PCPLOG(STR1,1)
+ 3040       CONTINUE
+            CONV=(CONV.OR.(ERMS.LE.TAURMS*TAUFAC))
+         END IF
+         IF ((LMAG.EQ.0).OR.(ERMSBIG.EQ.0.0)) THEN
+            WRITE (STR1,1060,ERR=3050) ERMS/ERMSOLD
+ 1060       FORMAT('RHS/LAST LINEARIZATION=',F10.4,:,
+     *      ', RHS/NEXT HIGHER RESOLUTION=',F10.4)
+            CALL PCPLOG(STR1,1)
+ 3050       CONTINUE
+         ELSE
+            WRITE (STR1,1060,ERR=3060) ERMS/ERMSOLD,ERMS/ERMSBIG
+            CALL PCPLOG(STR1,1)
+ 3060       CONTINUE
+            CONV=(CONV.OR.(ERMS.LE.ERMSBIG*BIGTOL))
+         END IF
+         IF (CONV) THEN
+            IF (LMAG.GT.0) THEN
+	       WRITE (STR1,'(A)') 'INCREASE THE RESOLUTION.'
+C	       WRITE (STR1,'(A)') 'SUGGEST YOU INCREASE RESOLUTION.'
+               CALL HINTERROR(STR1,'',0)
+C	       CALL PCPLOG(STR1,1)
+            ELSE
+               WRITE (STR1,'(A)') 'SOLUTION HAS CONVERGED.'
+               CALL HINTERROR(STR1,'',0)
+C	       CALL PCPLOG(STR1,1)
+            END IF
+         END IF
+         SLOW=((ERMS.GE.ERMSOLD*OLDTOL).AND.(LMAG.LT.LMMAX))
+         IF (SLOW.AND.(.NOT.CONV)) THEN
+           WRITE (STR1,'(A)') 'DECREASE THE RESOLUTION.'
+C           WRITE (STR1,'(A)') 'SUGGEST YOU DECREASE RESOLUTION.'
+           CALL HINTERROR(STR1,'',0)
+C	   CALL PCPLOG(STR1,1)
+         ENDIF
+         IF (SLOW.OR.CONV) THEN
+            NLINC=0
+            NLMAX=NL-1
+         END IF
+         FOPS=NOPS*1.0E-6
+         IF (LOGIT) THEN
+	   WRITE (IULOG,'(I3,1X,F9.4,1X,I2,2X,F8.5,
+     *   1X,F17.8,1X,F15.8,1X,F13.6)',ERR=3070) 
+     *   NL,FOPS,MAG,CONTRAST,ERMS,DBRMS,
+     *   ZRMS*FMAG/ASPECT
+         ENDIF
+	 WRITE (STR1,'(I3,1X,F9.2,1X,I2,2X,F8.5,
+     *   1X,F17.8,1X,F15.8,1X,F13.6)',ERR=3070) 
+     *   NL,FOPS,MAG,CONTRAST,ERMS,DBRMS,
+     *   ZRMS*FMAG/ASPECT
+	 CALL PCPLOG(STR1,0)
+ 3070    CONTINUE
+      IF ((NL.LT.NLMAX).AND.(R.GE.1.0)) GO TO 20
+C      CALL BELL
+C      ANSWER=.FALSE.
+C      IF (NLINC.EQ.0) CALL YN2TF('ITERATE FURTHER AT SAME RESOLUTION?',
+C     * ANSWER)
+C      IF (ANSWER) GO TO 10
+
+      ERMS_PLOT(NRPLOTIDX) = 
+     *  LOG10(MAX(1.0E-6,ABS(ERMS)))
+      DBRMS_PLOT(NRPLOTIDX) = 
+     *  LOG10(MAX(1.0E-6,ABS(DBRMS)))
+      DZRMS_PLOT(NRPLOTIDX) = 
+     *  LOG10(MAX(1.0E-6,ABS(DZRMS/ASPECT)))
+      DO I = 0,SORPLOTIDX(SORPLOT) - 1
+	ERMSL_PLOT(I,SORPLOT) =
+     *    LOG10(MAX(1.0E-6,ABS(ERMSL_PLOT(I,SORPLOT))))
+	DDZRMS_PLOT(I,SORPLOT) =
+     *    LOG10(MAX(1.0E-6,ABS(DDZRMS_PLOT(I,SORPLOT))))
+      ENDDO
+      CALL PGSLCT(NRID)
+      CALL PGSAVE
+      IF (NRPLOTIDX.GT.50) THEN
+	CALL PGSCI(0)
+	CALL PGLINE(NRPLOTIDX,YPNTS,ERMS_PLOT)
+        CALL PGLINE(NRPLOTIDX,YPNTS,DBRMS_PLOT)
+        CALL PGLINE(NRPLOTIDX,YPNTS,DZRMS_PLOT)
+        DO I = 0,50
+	  ERMS_PLOT(I) = ERMS_PLOT(I+1)
+	  DBRMS_PLOT(I) = DBRMS_PLOT(I+1)
+	  DZRMS_PLOT(I) = DZRMS_PLOT(I+1)
+        ENDDO
+	CALL PGSCI(1)
+	CALL PGBOX('BCST',0.0,0,'BCST',0.0,0)
+        CALL PGSCI(19)
+	CALL PGLINE(NRPLOTIDX,YPNTS,ERMS_PLOT)
+        CALL PGSCI(16)
+        CALL PGLINE(NRPLOTIDX,YPNTS,DBRMS_PLOT)
+        CALL PGSCI(24)
+        CALL PGLINE(NRPLOTIDX,YPNTS,DZRMS_PLOT)
+	NRPLOTIDX = 50
+      ELSEIF (NRPLOTIDX.GT.0) THEN
+        CALL PGSCI(19)
+	CALL PGLINE(NRPLOTIDX+1,YPNTS,ERMS_PLOT)
+        CALL PGSCI(16)
+        CALL PGLINE(NRPLOTIDX+1,YPNTS,DBRMS_PLOT)
+        CALL PGSCI(24)
+        CALL PGLINE(NRPLOTIDX+1,YPNTS,DZRMS_PLOT)
+      ENDIF
+      CALL PGUNSA
+      CALL PGSLCT(SORID)
+      CALL PGSAVE
+      IF (SORPLOT.GT.5) THEN
+	CALL PGBOX('BCST',0.0,0,'BCST',0.0,0)
+	DO I = 1,6
+	  IF (I.EQ.1) CALL PGSCI(0)
+	  IF (I.EQ.2) CALL PGSCI(21)
+	  IF (I.EQ.3) CALL PGSCI(20)
+          IF (I.EQ.4) CALL PGSCI(19)
+          IF (I.EQ.5) CALL PGSCI(18)
+          IF (I.EQ.6) CALL PGSCI(17)
+          CALL PGLINE(SORPLOTIDX(I),YPNTS,
+     *  ERMSL_PLOT(0,I))
+	  IF (I.EQ.1) CALL PGSCI(0)
+	  IF (I.EQ.2) CALL PGSCI(26)
+	  IF (I.EQ.3) CALL PGSCI(25)
+          IF (I.EQ.4) CALL PGSCI(24)
+          IF (I.EQ.5) CALL PGSCI(23)
+          IF (I.EQ.6) CALL PGSCI(22)
+          CALL PGLINE(SORPLOTIDX(I),YPNTS,
+     *  DDZRMS_PLOT(0,I))
+        ENDDO
+        DO J = 1,5
+	  DO I = 0,30
+	    ERMSL_PLOT(I,J) = ERMSL_PLOT(I,J+1)
+	    DDZRMS_PLOT(I,J) = DDZRMS_PLOT(I,J+1)
+	  ENDDO
+	  SORPLOTIDX(J) = SORPLOTIDX(J+1)
+        ENDDO
+	SORPLOT = 5
+	SORPLOTIDX(6) = 0
+      ELSE
+        IF (SORPLOT.EQ.1) THEN
+          CALL PGSCI(17)
+          CALL PGLINE(SORPLOTIDX(SORPLOT),YPNTS,
+     *    ERMSL_PLOT(0,SORPLOT))
+        ENDIF
+        IF (SORPLOT.EQ.2) THEN
+          CALL PGSCI(18)
+          CALL PGLINE(SORPLOTIDX(1),YPNTS,
+     *    ERMSL_PLOT(0,1))
+          CALL PGSCI(17)
+          CALL PGLINE(SORPLOTIDX(SORPLOT),YPNTS,
+     *    ERMSL_PLOT(0,SORPLOT))
+        ENDIF
+        IF (SORPLOT.EQ.3) THEN
+          CALL PGSCI(19)
+          CALL PGLINE(SORPLOTIDX(1),YPNTS,
+     *    ERMSL_PLOT(0,1))
+          CALL PGSCI(18)
+          CALL PGLINE(SORPLOTIDX(2),YPNTS,
+     *    ERMSL_PLOT(0,2))
+          CALL PGSCI(17)
+          CALL PGLINE(SORPLOTIDX(SORPLOT),YPNTS,
+     *    ERMSL_PLOT(0,SORPLOT))
+        ENDIF
+        IF (SORPLOT.EQ.4) THEN
+          CALL PGSCI(20)
+          CALL PGLINE(SORPLOTIDX(1),YPNTS,
+     *    ERMSL_PLOT(0,1))
+          CALL PGSCI(19)
+          CALL PGLINE(SORPLOTIDX(2),YPNTS,
+     *    ERMSL_PLOT(0,2))
+          CALL PGSCI(18)
+          CALL PGLINE(SORPLOTIDX(3),YPNTS,
+     *    ERMSL_PLOT(0,3))
+          CALL PGSCI(17)
+          CALL PGLINE(SORPLOTIDX(SORPLOT),YPNTS,
+     *    ERMSL_PLOT(0,SORPLOT))
+        ENDIF
+        IF (SORPLOT.EQ.5) THEN
+          CALL PGSCI(21)
+          CALL PGLINE(SORPLOTIDX(1),YPNTS,
+     *    ERMSL_PLOT(0,1))
+          CALL PGSCI(20)
+          CALL PGLINE(SORPLOTIDX(2),YPNTS,
+     *    ERMSL_PLOT(0,2))
+          CALL PGSCI(19)
+          CALL PGLINE(SORPLOTIDX(3),YPNTS,
+     *    ERMSL_PLOT(0,3))
+          CALL PGSCI(18)
+          CALL PGLINE(SORPLOTIDX(4),YPNTS,
+     *    ERMSL_PLOT(0,4))
+          CALL PGSCI(17)
+          CALL PGLINE(SORPLOTIDX(SORPLOT),YPNTS,
+     *    ERMSL_PLOT(0,SORPLOT))
+        ENDIF
+        IF (SORPLOT.EQ.1) THEN
+          CALL PGSCI(22)
+          CALL PGLINE(SORPLOTIDX(SORPLOT),YPNTS,
+     *    DDZRMS_PLOT(0,SORPLOT))
+        ENDIF
+        IF (SORPLOT.EQ.2) THEN
+          CALL PGSCI(23)
+          CALL PGLINE(SORPLOTIDX(1),YPNTS,
+     *    DDZRMS_PLOT(0,1))
+          CALL PGSCI(22)
+          CALL PGLINE(SORPLOTIDX(SORPLOT),YPNTS,
+     *    DDZRMS_PLOT(0,SORPLOT))
+        ENDIF
+        IF (SORPLOT.EQ.3) THEN
+          CALL PGSCI(24)
+          CALL PGLINE(SORPLOTIDX(1),YPNTS,
+     *    DDZRMS_PLOT(0,1))
+          CALL PGSCI(23)
+          CALL PGLINE(SORPLOTIDX(2),YPNTS,
+     *    DDZRMS_PLOT(0,2))
+          CALL PGSCI(22)
+          CALL PGLINE(SORPLOTIDX(SORPLOT),YPNTS,
+     *    DDZRMS_PLOT(0,SORPLOT))
+        ENDIF
+        IF (SORPLOT.EQ.4) THEN
+          CALL PGSCI(25)
+          CALL PGLINE(SORPLOTIDX(1),YPNTS,
+     *    DDZRMS_PLOT(0,1))
+          CALL PGSCI(24)
+          CALL PGLINE(SORPLOTIDX(2),YPNTS,
+     *    DDZRMS_PLOT(0,2))
+          CALL PGSCI(23)
+          CALL PGLINE(SORPLOTIDX(3),YPNTS,
+     *    DDZRMS_PLOT(0,3))
+          CALL PGSCI(22)
+          CALL PGLINE(SORPLOTIDX(SORPLOT),YPNTS,
+     *    DDZRMS_PLOT(0,SORPLOT))
+        ENDIF
+        IF (SORPLOT.EQ.5) THEN
+          CALL PGSCI(26)
+          CALL PGLINE(SORPLOTIDX(1),YPNTS,
+     *    DDZRMS_PLOT(0,1))
+          CALL PGSCI(25)
+          CALL PGLINE(SORPLOTIDX(2),YPNTS,
+     *    DDZRMS_PLOT(0,2))
+          CALL PGSCI(24)
+          CALL PGLINE(SORPLOTIDX(3),YPNTS,
+     *    DDZRMS_PLOT(0,3))
+          CALL PGSCI(23)
+          CALL PGLINE(SORPLOTIDX(4),YPNTS,
+     *    DDZRMS_PLOT(0,4))
+          CALL PGSCI(22)
+          CALL PGLINE(SORPLOTIDX(SORPLOT),YPNTS,
+     *    DDZRMS_PLOT(0,SORPLOT))
+        ENDIF
+      ENDIF
+      CALL PGUNSA
+      SORPLOT = SORPLOT + 1
+      NRPLOTIDX = NRPLOTIDX + 1
+      WRTIMG=.TRUE.
+      SCLHT = FMAG*RES*1000.0
+      CALL FIT2DIP(Z,NX1,NY1,SCLHT,SCLHT,ASPECT,AZINC,CHARAZ,
+     *DIP,DIPAZ,SUNDIP,RMSDN,RMSPIX,RMSM)
+      WRITE (STR1,'(F12.7,A,F12.7)') DIP,',',DIPAZ 
+      CALL HINTERROR(STR1,'',3)
+      WRITE (STR1,'(F12.7)') SUNDIP 
+      CALL HINTERROR(STR1,'',4)
+      WRITE (STR1,'(F14.7,A)') RMSM,','
+      WRITE (STR2,'(F14.7)') RMSPIX
+      CALL HINTERROR(STR1,STR2,5)
+
+      RETURN
+      END

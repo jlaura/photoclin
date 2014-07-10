@@ -1,0 +1,36 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module xcmain_gui ! in 
+    interface  ! in :xcmain_gui
+        subroutine xcmain_gui(idum,n10,nx0,ny0,iaction,sordir,aeknown,n1lmag,n2lmag,n4lmag,nxlmag,nylmag,wrtimg,mag,minmag,res,azinc,fastinj,ret) ! in :xcmain_gui:xcmain_gui.F
+            integer*4 intent(in, out) :: idum
+            integer*4 intent(in) :: n10
+            integer*4 intent(in,out) :: nx0
+            integer*4 intent(in,out) :: ny0
+            integer*4 intent(in) :: iaction
+            integer*4 intent(in)  :: sordir
+            logical*1 intent(in, out)  :: aeknown
+            integer*4 intent(inplace)  :: n1lmag
+            integer*4 intent(inplace)  :: n2lmag
+            integer*4 intent(inplace)  :: n4lmag
+            integer*4 intent(inplace)  :: nxlmag
+            integer*4 intent(inplace)  :: nylmag
+            logical*1 intent(inplace)  :: wrtimg
+            integer*4 intent(out)  :: mag
+            integer*4 intent(out)  :: minmag
+            real*8 intent(inplace)  :: res
+            real*8 intent(inplace)  :: azinc
+            logical*1 intent(in)  :: fastinj
+            integer*4 intent(out)  :: ret
+            integer*4 intent(overwrite)  :: nx1
+            integer*4 intent(overwrite)  :: ny1
+            integer*4 intent(overwrite)  :: icheck
+            integer*4 intent(overwrite)  :: jcheck
+            common /check/ nx1,ny1,icheck,jcheck
+        end subroutine xcmain_gui
+    end interface 
+end python module xcmain_gui
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/

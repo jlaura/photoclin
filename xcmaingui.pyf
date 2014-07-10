@@ -1,0 +1,36 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module xcmain_gui ! in 
+    interface  ! in :xcmain_gui
+        subroutine xcmain_gui(idum,n10,nx0,ny0,iaction,sordir,aeknown,n1lmag,n2lmag,n4lmag,nxlmag,nylmag,wrtimg,mag,minmag,res,azinc,fastinj,ret) ! in :xcmain_gui:xcmain_gui.F
+            integer*4 :: idum
+            integer*4 :: n10
+            integer*4 :: nx0
+            integer*4 :: ny0
+            integer*4 :: iaction
+            integer*4 :: sordir
+            logical*1 :: aeknown
+            integer*4 :: n1lmag
+            integer*4 :: n2lmag
+            integer*4 :: n4lmag
+            integer*4 :: nxlmag
+            integer*4 :: nylmag
+            logical*1 :: wrtimg
+            integer*4 :: mag
+            integer*4 :: minmag
+            real*8 :: res
+            real*8 :: azinc
+            logical*1 :: fastinj
+            integer*4 :: ret
+            integer*4 :: nx1
+            integer*4 :: ny1
+            integer*4 :: icheck
+            integer*4 :: jcheck
+            common /check/ nx1,ny1,icheck,jcheck
+        end subroutine xcmain_gui
+    end interface 
+end python module xcmain_gui
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/

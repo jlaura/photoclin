@@ -62,8 +62,8 @@ c_end
      .    pht_func=pht_lambert(inc,ema,phase)
         if (char_pht_function.eq.'LOMSEL')
      .    pht_func=pht_lomsel(inc,ema,phase)
-c	if (char_pht_function.eq.'USER')
-c     .    pht_func=pht_user(inc,ema,phase)
+	if (char_pht_function.eq.'USER')
+     .    pht_func=pht_user(inc,ema,phase)
 
  
         return
