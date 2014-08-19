@@ -1,6 +1,8 @@
 #! /usr/bin/env pythonw
 
+import json
 import logging
+import logging.handlers
 import os
 import sys
 import time
@@ -23,6 +25,8 @@ from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg
 from matplotlib.figure import Figure
 
 import numpy as np
+
+import fileio
 
 COLORTABLE=[QtGui.qRgb(255,255,255)]
 for i in range(255): COLORTABLE.append(QtGui.qRgb(i,i,i))
@@ -177,7 +181,7 @@ class MainWindow(QtGui.QMainWindow):
         handler = logging.StreamHandler(stream=sys.stdout)
         handler.setFormatter(formatter)
         handler.setLevel(logging.DEBUG)
-        h2 = logging.FileHandler('Pc2d.log')
+        h2 = logging.handlers.RotatingFileHandler('Pc2d.log', maxBytes=1000000, backupCount=3)
         h2.setFormatter(formatter)
         h2.setLevel(logging.DEBUG)
         self.logger.addHandler(handler)
@@ -275,14 +279,21 @@ class MainWindow(QtGui.QMainWindow):
         self.aboutui.show()
 
     def openDialog(self, source):
-        fileName = QtGui.QFileDialog.getOpenFileName(self, 'Open file',
+        filename = QtGui.QFileDialog.getOpenFileName(self, 'Open file',
                                                      QtCore.QDir.currentPath())
 
-        if len(fileName[0]) > 0:
+        if len(filename[0]) > 0:
             #Open the image
             self.createImageViewers(source)
-            self.ds = gdal.Open(fileName[0])
-            self.logger.debug('Opened {}'.format(fileName[0]))
+            self.ds = gdal.Open(filename[0])
+            self.logger.debug('Opened {} from source "{}"'.format(filename[0], source))
+            #Read the header into memory
+            if source == 'image':
+                self.logger.debug("Calling extract header")
+                self.imageheader = fileio.getheader(filename[0], self.logger)
+                self.logger.debug("Image Header:\n {}".format(json.dumps(self.imageheader, indent=2)))
+            else:
+                self.dtmheader = fileio.getheader(filename[0], self.logger)
             self.loadinput(source)
 
     def loadinput(self, source):
@@ -327,7 +338,7 @@ class MainWindow(QtGui.QMainWindow):
             nx = self.arr.shape[1]
             ny = self.arr.shape[0]
 
-            self.pc2d = PC2D(nx, ny,logger=self.logger)
+            self.pc2d = PC2D(nx, ny,logger=self.logger, inputds=self.ds)
 
 class OutLog():
     def __init__(self, edit, out=None, color=None):
@@ -367,7 +378,8 @@ class PC2D():
     ny              (ndarray) Y dimensions for each zoom level
     """
 
-    def __init__(self,xpixelcount, ypixelcount,currentzoom=1, logger=None):
+    def __init__(self,xpixelcount, ypixelcount,currentzoom=1, logger=None, inputds=None):
+        self.ds = inputds
         self.xpixelcount = xpixelcount
         self.ypixelcount = ypixelcount
         self.npixels = xpixelcount * ypixelcount
@@ -450,7 +462,12 @@ n9d: {}\n""".format(self.xpixelcount, self.ypixelcount, self.npixels,
             self.nx[idx] = self.nx[idx-1] / 2
             self.ny[idx] = self.ny[idx-1] / 2
 
-
+    def get_phase_inc_emi(self):
+        self._logger.debug('Extracting Phase, Incidence, and Emission from Cube')
+        try:
+            pass
+        except:
+            self._logger.error('Unable to extract Phase, Incidence, and Emission.  Please run campt on the input image.')
 if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)
     mainwindow = MainWindow()
